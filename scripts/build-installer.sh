@@ -121,7 +121,11 @@ USERNAME=""
 INIT_PASS=""
 KB_LAYOUT="us"
 BROWSER_CHOICE=""
-ERRORS=()
+WARNINGS=()
+CRITICALS=()
+RUN_TMP=""
+FAIL_DETAIL_LABELS=()
+FAIL_DETAIL_FILES=()
 
 # ── Colors & TUI ─────────────────────────────────────────────────────────────
 
@@ -137,31 +141,96 @@ hide_cursor()  { printf '\033[?25l'; }
 show_cursor()  { printf '\033[?25h'; }
 clear_screen() { printf '\033[2J\033[H'; }
 
-trap 'show_cursor' EXIT
+trap 'show_cursor; rm -rf "${RUN_TMP}" 2>/dev/null || true' EXIT
 
 _abort_install() {
   show_cursor
   clear_screen
+  rm -rf "$RUN_TMP" 2>/dev/null || true
   printf '%s\n' "Aborting installation..."
   trap - INT TERM
   exit 130
 }
 trap '_abort_install' INT TERM
 
+_init_run_tmp() {
+  [ -n "$RUN_TMP" ] && return 0
+  RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/nixsetup.XXXXXX")" || RUN_TMP="${TMPDIR:-/tmp}"
+}
+
+_capt() {
+  local label="$1" lf
+  shift
+  _init_run_tmp
+  lf="$(mktemp "$RUN_TMP/cap.XXXXXX")"
+  if "$@" >"$lf" 2>&1; then
+    rm -f "$lf"
+    return 0
+  fi
+  FAIL_DETAIL_LABELS+=("$label")
+  FAIL_DETAIL_FILES+=("$lf")
+  return 1
+}
+
+_review_fail_logs() {
+  local rep i
+  if [ ${#FAIL_DETAIL_LABELS[@]} -eq 0 ] && [ ${#WARNINGS[@]} -eq 0 ] && [ ${#CRITICALS[@]} -eq 0 ]; then
+    return 0
+  fi
+  _init_run_tmp
+  rep="$(mktemp "$RUN_TMP/review.XXXXXX")"
+  {
+    if [ ${#CRITICALS[@]} -gt 0 ]; then
+      printf '%s\n' "=== Errors ==="
+      printf '%s\n' "${CRITICALS[@]}"
+      printf '\n'
+    fi
+    if [ ${#WARNINGS[@]} -gt 0 ]; then
+      printf '%s\n' "=== Warnings ==="
+      printf '%s\n' "${WARNINGS[@]}"
+      printf '\n'
+    fi
+    if [ ${#FAIL_DETAIL_LABELS[@]} -gt 0 ]; then
+      printf '%s\n' "=== Last 10 lines per captured command ==="
+      for i in "${!FAIL_DETAIL_LABELS[@]}"; do
+        printf '\n--- %s ---\n' "${FAIL_DETAIL_LABELS[$i]}"
+        tail -n 10 "${FAIL_DETAIL_FILES[$i]}" 2>/dev/null || printf '%s\n' "(no output)"
+      done
+    fi
+  } >"$rep"
+  echo ""
+  if command -v less >/dev/null 2>&1; then
+    echo -e "  ${DIM}Scrollable log: arrows / PgUp·PgDn · q closes${R}"
+    less -R "$rep" || true
+  else
+    cat "$rep"
+    read -r -s -p "  Press Enter..." _ || true
+  fi
+  rm -f "$rep"
+}
+
 log() { echo -e "  ${DIM}▸${R} $*"; }
 ok()  { echo -e "  ${GR}${BOLD}✓${R} $*"; }
-warn(){ echo -e "  ${YE}${BOLD}⚠${R} $*"; ERRORS+=("$*"); }
-err() { echo -e "  ${RE}${BOLD}✗${R} $*"; ERRORS+=("CRITICAL: $*"); }
+warn(){ echo -e "  ${YE}${BOLD}⚠${R} $*"; WARNINGS+=("$*"); }
+err() { echo -e "  ${RE}${BOLD}✗${R} $*"; CRITICALS+=("$*"); }
 
 phase_header() {
   local num="$1" title="$2"
+  local iw=46 bar="" mid titlepad i
   clear_screen
+  for ((i = 0; i < iw; i++)); do bar+="═"; done
   echo -e ""
-  echo -e "  ${CY}${BOLD}╔══════════════════════════════════════════════╗${R}"
-  printf   "  ${CY}${BOLD}║${R}  ${BOLD}NixOS Installer${R}  ${DIM}│${R}  Phase %-2s of 11        ${CY}${BOLD}║${R}\n" "$num"
-  echo -e "  ${CY}${BOLD}╠══════════════════════════════════════════════╣${R}"
-  printf   "  ${CY}${BOLD}║${R}  ${BOLD}%-44s${R}${CY}${BOLD}║${R}\n" "$title"
-  echo -e "  ${CY}${BOLD}╚══════════════════════════════════════════════╝${R}"
+  echo -e "  ${CY}${BOLD}╔${bar}╗${R}"
+  mid="  NixOS Installer  |  Phase ${num} of 11"
+  [ ${#mid} -gt "$iw" ] && mid="${mid:0:iw}"
+  printf -v mid '%-*s' "$iw" "$mid"
+  echo -e "  ${CY}${BOLD}║${R}${BOLD}${mid}${R}${CY}${BOLD}║${R}"
+  echo -e "  ${CY}${BOLD}╠${bar}╣${R}"
+  titlepad="  ${title}"
+  [ ${#titlepad} -gt "$iw" ] && titlepad="${titlepad:0:iw}"
+  printf -v titlepad '%-*s' "$iw" "$titlepad"
+  echo -e "  ${CY}${BOLD}║${R}${BOLD}${titlepad}${R}${CY}${BOLD}║${R}"
+  echo -e "  ${CY}${BOLD}╚${bar}╝${R}"
   echo -e ""
 }
 
@@ -231,12 +300,12 @@ tui_checkbox() {
 
   _render_cb() {
     for i in "${!items[@]}"; do
-      local box="[ ]" col="$DIM"
-      [ "${selected[$i]}" -eq 1 ] && box="[${GR}x${R}]" && col=""
+      local box="[ ]" ocol="$DIM"
+      [ "${selected[$i]}" -eq 1 ] && box="[${GR}x${R}]" && ocol=""
       if [ "$i" -eq "$cur" ]; then
-        echo -e "  ${CY}${BOLD}▶${R}  ${box} ${col}${items[$i]}${R}"
+        echo -e "  ${CY}${BOLD}▶${R}  ${box} ${BOLD}${items[$i]}${R}"
       else
-        echo -e "     ${box} ${col}${DIM}${items[$i]}${R}"
+        echo -e "     ${box} ${ocol}${items[$i]}${R}"
       fi
     done
   }
@@ -285,9 +354,15 @@ tui_checkbox() {
 tui_input() {
   local -n _inp="$1"; shift
   local prompt="$1" default="${2:-}"
-  local hint=""
-  [ -n "$default" ] && hint=" ${DIM}[${default}]${R}"
-  printf "  ${BOLD}%s${R}%b  " "$prompt" "$hint"
+  printf '  '
+  printf '%b' "${BOLD}"
+  printf '%b' "$prompt"
+  printf '%b' "${R}"
+  if [ -n "$default" ]; then
+    printf ' %b[%s]%b  ' "${DIM}" "$default" "${R}"
+  else
+    printf '  '
+  fi
   IFS= read -r _inp
   [ -z "$_inp" ] && _inp="$default"
   echo ""
@@ -356,7 +431,7 @@ tui_password INIT_PASS "Initial password" "changeme"
 echo -e "  ${GR}${BOLD}✓${R} Identity:"
 echo -e "    ${DIM}▸${R} User:     ${CY}${USERNAME}${R}"
 echo -e "    ${DIM}▸${R} Config:   ${CY}${DEST}${R}"
-echo -e "    ${DIM}▸${R} Password: ${CY}${INIT_PASS//?/*}${R}"
+echo -e "    ${DIM}▸${R} Password: ${DIM}(set — hidden)${R}"
 echo ""
 read -r -s -p "  Press Enter to continue..." _
 echo ""
@@ -445,7 +520,7 @@ for disk in "${FORMAT_DISKS[@]}"; do
   dev="${disk%% *}"
   [ "$dev" = "$PRIMARY_DEV" ] && continue
   mount_path=""
-  tui_input mount_path "Mount path for ${CY}${dev}${R}" "/hdd"
+  tui_input mount_path "Mount path for ${CY}${dev}${R}:" "/hdd"
   MOUNT_PATHS["$dev"]="$mount_path"
 done
 
@@ -507,7 +582,7 @@ chown -R "$USERNAME:users" "$DEST" 2>/dev/null \
 chmod -R u+rw,go-w "$DEST"
 
 log "Linking /etc/nixos → ${DEST}..."
-if sudo rm -rf /etc/nixos && sudo ln -sf "$DEST" /etc/nixos; then
+if _capt "sudo ln /etc/nixos → ${DEST}" bash -c "sudo rm -rf /etc/nixos && sudo ln -sf \"$DEST\" /etc/nixos"; then
   ok "/etc/nixos linked."
 else
   warn "Could not link /etc/nixos — do it manually: sudo ln -sf ${DEST} /etc/nixos"
@@ -535,7 +610,7 @@ else
   echo ""
 
   log "Partitioning ${PRIMARY_DEV}..."
-  if sudo parted -s "$PRIMARY_DEV" -- \
+  if _capt "parted ${PRIMARY_DEV}" sudo parted -s "$PRIMARY_DEV" -- \
       mklabel gpt \
       mkpart ESP fat32 1MiB 512MiB \
       set 1 esp on \
@@ -554,34 +629,55 @@ else
   fi
 
   log "Formatting boot partition (FAT32)..."
-  sudo mkfs.fat -F 32 -n BOOT "$BOOT_PART" && ok "Boot: ${BOOT_PART}" \
-    || warn "mkfs.fat failed on ${BOOT_PART}"
+  if _capt "mkfs.fat ${BOOT_PART}" sudo mkfs.fat -F 32 -n BOOT "$BOOT_PART"; then
+    ok "Boot: ${BOOT_PART}"
+  else
+    warn "mkfs.fat failed on ${BOOT_PART}"
+  fi
 
   log "Formatting root partition (ext4)..."
-  sudo mkfs.ext4 -L nixos "$ROOT_PART" && ok "Root: ${ROOT_PART}" \
-    || warn "mkfs.ext4 failed on ${ROOT_PART}"
+  if _capt "mkfs.ext4 ${ROOT_PART}" sudo mkfs.ext4 -L nixos "$ROOT_PART"; then
+    ok "Root: ${ROOT_PART}"
+  else
+    warn "mkfs.ext4 failed on ${ROOT_PART}"
+  fi
 
   log "Mounting root..."
-  sudo mount "$ROOT_PART" /mnt && ok "Mounted ${ROOT_PART} → /mnt" \
-    || err "Mount failed for ${ROOT_PART}"
+  if _capt "mount ${ROOT_PART} /mnt" sudo mount "$ROOT_PART" /mnt; then
+    ok "Mounted ${ROOT_PART} → /mnt"
+  else
+    err "Mount failed for ${ROOT_PART}"
+  fi
 
   sudo mkdir -p /mnt/boot
-  sudo mount "$BOOT_PART" /mnt/boot && ok "Mounted ${BOOT_PART} → /mnt/boot" \
-    || warn "Boot mount failed for ${BOOT_PART}"
+  if _capt "mount ${BOOT_PART} /mnt/boot" sudo mount "$BOOT_PART" /mnt/boot; then
+    ok "Mounted ${BOOT_PART} → /mnt/boot"
+  else
+    warn "Boot mount failed for ${BOOT_PART}"
+  fi
 
   for dev in "${!MOUNT_PATHS[@]}"; do
     mpath="${MOUNT_PATHS[$dev]}"
     log "Formatting extra disk ${dev} (ext4)..."
-    sudo mkfs.ext4 -L "$(basename "$mpath")" "$dev" && ok "Formatted: ${dev}" \
-      || warn "mkfs.ext4 failed on ${dev}"
+    if _capt "mkfs.ext4 ${dev}" sudo mkfs.ext4 -L "$(basename "$mpath")" "$dev"; then
+      ok "Formatted: ${dev}"
+    else
+      warn "mkfs.ext4 failed on ${dev}"
+    fi
     sudo mkdir -p "/mnt${mpath}"
-    sudo mount "$dev" "/mnt${mpath}" && ok "Mounted ${dev} → /mnt${mpath}" \
-      || warn "Could not mount ${dev} → /mnt${mpath}"
+    if _capt "mount ${dev} → /mnt${mpath}" sudo mount "$dev" "/mnt${mpath}"; then
+      ok "Mounted ${dev} → /mnt${mpath}"
+    else
+      warn "Could not mount ${dev} → /mnt${mpath}"
+    fi
   done
 
   log "Generating hardware config..."
-  sudo nixos-generate-config --root /mnt && ok "hardware-configuration.nix generated." \
-    || warn "nixos-generate-config failed — hardware config may be incomplete"
+  if _capt "nixos-generate-config --root /mnt" sudo nixos-generate-config --root /mnt; then
+    ok "hardware-configuration.nix generated."
+  else
+    warn "nixos-generate-config failed — hardware config may be incomplete"
+  fi
 
   GENERATED_HW="/mnt/etc/nixos/hardware-configuration.nix"
   if [ -f "$GENERATED_HW" ]; then
@@ -607,10 +703,21 @@ if [ "$AUTO_INSTALL" -eq 0 ]; then
 else
   log "Running nixos-install..."
   echo ""
-  if sudo nixos-install --no-root-passwd --flake /etc/nixos#nixos; then
+  _init_run_tmp
+  _nil="$(mktemp "$RUN_TMP/nixinst.XXXXXX")"
+  set +e
+  set +o pipefail
+  sudo nixos-install --no-root-passwd --flake /etc/nixos#nixos 2>&1 | tee "$_nil"
+  _nix_ec=${PIPESTATUS[0]}
+  set -o pipefail
+  set -e
+  if [ "$_nix_ec" -eq 0 ]; then
+    rm -f "$_nil"
     ok "NixOS installed successfully."
   else
-    err "nixos-install failed — check logs above. You may retry manually."
+    err "nixos-install failed — captured output can be reviewed below."
+    FAIL_DETAIL_LABELS+=("nixos-install")
+    FAIL_DETAIL_FILES+=("$_nil")
   fi
 fi
 
@@ -621,14 +728,14 @@ PHASE6_REST
 cat << 'FINAL'
 
 log "Installing ambxst..."
-if curl -fsSL get.axeni.de/ambxst | sh; then
+if _capt "curl get.axeni.de/ambxst | sh" bash -c "curl -fsSL get.axeni.de/ambxst | sh"; then
   ok "ambxst installed."
 else
   warn "ambxst install failed — run manually: curl -fsSL get.axeni.de/ambxst | sh"
 fi
 
 log "Running ambxst install hyprland..."
-if ambxst install hyprland; then
+if _capt "ambxst install hyprland" ambxst install hyprland; then
   ok "ambxst hyprland setup complete."
 else
   warn "ambxst install hyprland failed — run manually after reboot."
@@ -645,14 +752,23 @@ ok "~/.config/ambxst ready."
 # ═════════════════════════════════════════════════════════════════════════════
 phase_header "11" "Complete"
 
-if [ ${#ERRORS[@]} -eq 0 ]; then
+nw=${#WARNINGS[@]}
+nc=${#CRITICALS[@]}
+nd=${#FAIL_DETAIL_LABELS[@]}
+
+if [ "$nw" -eq 0 ] && [ "$nc" -eq 0 ]; then
   echo -e "  ${GR}${BOLD}All phases completed without errors.${R}"
 else
-  echo -e "  ${YE}${BOLD}Completed with ${#ERRORS[@]} warning(s):${R}"
-  echo ""
-  for e in "${ERRORS[@]}"; do
-    echo -e "    ${YE}▸${R} ${e}"
-  done
+  if [ "$nc" -gt 0 ]; then
+    echo -e "  ${RE}${BOLD}Errors (${nc}):${R}"
+    for e in "${CRITICALS[@]}"; do echo -e "    ${RE}▸${R} ${e}"; done
+    echo ""
+  fi
+  if [ "$nw" -gt 0 ]; then
+    echo -e "  ${YE}${BOLD}Warnings (${nw}):${R}"
+    for e in "${WARNINGS[@]}"; do echo -e "    ${YE}▸${R} ${e}"; done
+    echo ""
+  fi
 fi
 
 echo ""
@@ -676,6 +792,9 @@ else
   echo -e "    ${DIM}4.${R} Set up VPN, edit flake → ${CY}setupMode = false${R}, run ${CY}rr${R}"
 fi
 echo ""
+if [ "$nw" -gt 0 ] || [ "$nc" -gt 0 ] || [ "$nd" -gt 0 ]; then
+  _review_fail_logs
+fi
 FINAL
 }
 
