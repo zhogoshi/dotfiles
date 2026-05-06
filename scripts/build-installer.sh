@@ -196,8 +196,8 @@ tui_select() {
       IFS= read -r -s -n1 esc
       IFS= read -r -s -n1 esc
       case "$esc" in
-        A) [ "$cur" -gt 0 ] && (( cur-- )) ;;
-        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) ;;
+        A) [ "$cur" -gt 0 ] && cur=$(( cur - 1 )) ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && cur=$(( cur + 1 )) ;;
       esac
     elif [ "$key" = "" ]; then
       break
@@ -250,8 +250,8 @@ tui_checkbox() {
       IFS= read -r -s -n1 esc
       IFS= read -r -s -n1 esc
       case "$esc" in
-        A) [ "$cur" -gt 0 ] && (( cur-- )) ;;
-        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) ;;
+        A) [ "$cur" -gt 0 ] && cur=$(( cur - 1 )) ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && cur=$(( cur + 1 )) ;;
       esac
     elif [ "$key" = " " ]; then
       selected[$cur]=$(( 1 - selected[$cur] ))
