@@ -19,14 +19,21 @@ CY='\033[36m'
 GR='\033[32m'
 YE='\033[33m'
 RE='\033[31m'
-BL='\033[34m'
 
 hide_cursor()  { printf '\033[?25l'; }
 show_cursor()  { printf '\033[?25h'; }
-cursor_up()    { printf '\033[%dA' "$1"; }
-clear_line()   { printf '\033[2K\r'; }
+clear_screen() { printf '\033[2J\033[H'; }
 
 trap 'show_cursor' EXIT
+
+_abort_install() {
+  show_cursor
+  clear_screen
+  printf '%s\n' "Aborting installation..."
+  trap - INT TERM
+  exit 130
+}
+trap '_abort_install' INT TERM
 
 log() { echo -e "  ${DIM}▸${R} $*"; }
 ok()  { echo -e "  ${GR}${BOLD}✓${R} $*"; }
@@ -35,7 +42,7 @@ err() { echo -e "  ${RE}${BOLD}✗${R} $*"; ERRORS+=("CRITICAL: $*"); }
 
 phase_header() {
   local num="$1" title="$2"
-  clear
+  clear_screen
   echo -e ""
   echo -e "  ${CY}${BOLD}╔══════════════════════════════════════════════╗${R}"
   printf   "  ${CY}${BOLD}║${R}  ${BOLD}NixOS Installer${R}  ${DIM}│${R}  Phase %-2s of 11        ${CY}${BOLD}║${R}\n" "$num"
@@ -54,6 +61,7 @@ tui_select() {
 
   hide_cursor
   echo -e "  ${BOLD}${prompt}${R}"
+  echo -e "  ${DIM}(↑↓ select · Enter confirm)${R}"
   echo ""
 
   _render_list() {
@@ -66,8 +74,8 @@ tui_select() {
     done
   }
 
+  printf '\033[s'
   _render_list
-  cursor_up "$total"
 
   while true; do
     IFS= read -r -s -n1 key
@@ -75,20 +83,19 @@ tui_select() {
       IFS= read -r -s -n1 esc
       IFS= read -r -s -n1 esc
       case "$esc" in
-        A) [ "$cur" -gt 0 ] && (( cur-- )) || true ;;
-        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) || true ;;
+        A) [ "$cur" -gt 0 ] && (( cur-- )) ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) ;;
       esac
-    elif [ "$key" = ""] || [ "$key" = $'\r' ]; then
+    elif [ "$key" = "" ]; then
       break
+    else
+      continue
     fi
-    for _ in $(seq 1 "$total"); do clear_line; cursor_up 1; done
-    clear_line
+    printf '\033[u\033[0J'
     _render_list
-    cursor_up "$total"
   done
 
-  for _ in $(seq 1 "$total"); do clear_line; cursor_up 1; done
-  clear_line
+  printf '\033[u\033[0J'
   show_cursor
   echo -e "  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}  ${CY}${items[$cur]}${R}"
   echo ""
@@ -106,7 +113,7 @@ tui_checkbox() {
 
   hide_cursor
   echo -e "  ${BOLD}${prompt}${R}"
-  echo -e "  ${DIM}(↑↓ navigate · space = toggle · enter on Done = confirm)${R}"
+  echo -e "  ${DIM}(↑↓ navigate · Space toggle · Enter continue)${R}"
   echo ""
 
   _render_cb() {
@@ -119,17 +126,10 @@ tui_checkbox() {
         echo -e "     ${box} ${col}${DIM}${items[$i]}${R}"
       fi
     done
-    echo -e "  "
-    if [ "$cur" -eq "$total" ]; then
-      echo -e "  ${CY}${BOLD}▶ Done${R}"
-    else
-      echo -e "  ${BL}  Done${R}"
-    fi
   }
 
-  local render_lines=$(( total + 2 ))
+  printf '\033[s'
   _render_cb
-  cursor_up "$render_lines"
 
   while true; do
     IFS= read -r -s -n1 key
@@ -137,22 +137,21 @@ tui_checkbox() {
       IFS= read -r -s -n1 esc
       IFS= read -r -s -n1 esc
       case "$esc" in
-        A) [ "$cur" -gt 0 ] && (( cur-- )) || true ;;
-        B) [ "$cur" -lt "$total" ] && (( cur++ )) || true ;;
+        A) [ "$cur" -gt 0 ] && (( cur-- )) ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) ;;
       esac
-    elif [ "$key" = " " ] && [ "$cur" -lt "$total" ]; then
-      selected[$cur]=$(( 1 - selected[$cur] )) || true
-    elif { [ "$key" = "" ] || [ "$key" = $'\r' ]; } && [ "$cur" -eq "$total" ]; then
+    elif [ "$key" = " " ]; then
+      selected[$cur]=$(( 1 - selected[$cur] ))
+    elif [ "$key" = "" ]; then
       break
+    else
+      continue
     fi
-    for _ in $(seq 1 "$render_lines"); do clear_line; cursor_up 1; done
-    clear_line
+    printf '\033[u\033[0J'
     _render_cb
-    cursor_up "$render_lines"
   done
 
-  for _ in $(seq 1 "$render_lines"); do clear_line; cursor_up 1; done
-  clear_line
+  printf '\033[u\033[0J'
   show_cursor
 
   _checked=()
@@ -258,26 +257,14 @@ echo -e "  Select additional layouts. Cycle with ${CY}Alt+Shift${R}."
 echo ""
 
 _KB_OPTS=(
-  "Russian          (ru)"
-  "Spanish          (es)"
-  "German           (de)"
-  "French           (fr)"
-  "Ukrainian        (ua)"
-  "Italian          (it)"
-  "Portuguese       (pt)"
-  "Polish           (pl)"
-  "Turkish          (tr)"
-  "Dutch            (nl)"
-  "Swedish          (se)"
-  "Finnish          (fi)"
-  "Norwegian        (no)"
-  "Czech            (cz)"
-  "Romanian         (ro)"
-  "Hungarian        (hu)"
-  "Arabic           (ar)"
-  "Hebrew           (il)"
-  "Japanese         (jp)"
-  "Korean           (kr)"
+  "Russian    (ru)"
+  "Spanish    (es)"
+  "German     (de)"
+  "French     (fr)"
+  "Ukrainian  (ua)"
+  "Polish     (pl)"
+  "Japanese   (jp)"
+  "Italian    (it)"
 )
 
 _KB_SELECTED=()
