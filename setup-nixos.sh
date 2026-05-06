@@ -51,116 +51,140 @@ echo -e “”
 # ── TUI: arrow-key single-select ─────────────────────────────────────────────
 
 tui_select() {
-local -n _result=”$1”; shift
-local prompt=”$1”;     shift
-local items=(”$@”)
-local cur=0 total=${#items[@]} key esc
+  local -n _result="$1"; shift
+  local prompt="$1"; shift
+  local items=("$@")
+  local cur=0 total=${#items[@]} key esc
 
-hide_cursor
-echo -e “  ${BOLD}${prompt}${R}”
-echo “”
+  hide_cursor
+  echo -e "  ${BOLD}${prompt}${R}"
+  echo ""
 
-_render_list() {
-for i in “${!items[@]}”; do
-clear_line
-if [ “$i” -eq “$cur” ]; then
-echo -e “  ${CY}${BOLD}▶  ${items[$i]}${R}”
-else
-echo -e “     ${DIM}${items[$i]}${R}”
-fi
-done
-}
+  _render_list() {
+    for i in "${!items[@]}"; do
+      if [ "$i" -eq "$cur" ]; then
+        echo -e "  ${CY}${BOLD}▶  ${items[$i]}${R}"
+      else
+        echo -e "     ${DIM}${items[$i]}${R}"
+      fi
+    done
+  }
 
-_render_list
+  _redraw() {
+    _render_list
+  }
 
-while true; do
-IFS= read -r -s -n1 key
-if [ “$key” = $’\x1b’ ]; then
-IFS= read -r -s -n1 esc
-IFS= read -r -s -n1 esc
-case “$esc” in
-A) [ “$cur” -gt 0 ] && (( cur– )) || true ;;
-B) [ “$cur” -lt $(( total - 1 )) ] && (( cur++ )) || true ;;
-esac
-elif [ “$key” = “” ] || [ “$key” = $’\r’ ]; then
-break
-fi
-cursor_up “$total”
-_render_list
-done
+  _redraw
 
-cursor_up $(( total + 2 ))
-printf ‘\033[J’
-show_cursor
-echo -e “  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}  ${CY}${items[$cur]}${R}”
-echo “”
-_result=”${items[$cur]}”
+  while true; do
+    IFS= read -r -s -n1 key
+    if [ "$key" = $'\x1b' ]; then
+      IFS= read -r -s -n1 esc
+      IFS= read -r -s -n1 esc
+      case "$esc" in
+        A) [ "$cur" -gt 0 ] && (( cur-- )) || true ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) || true ;;
+      esac
+    elif [ -z "$key" ] || [ "$key" = $'\r' ]; then
+      break
+    fi
+
+    for _ in $(seq 1 $(( total + 2 ))); do
+      clear_line
+      cursor_up 1
+    done
+    clear_line
+    echo -e "  ${BOLD}${prompt}${R}"
+    echo ""
+    _redraw
+  done
+
+  for _ in $(seq 1 $(( total + 2 ))); do
+    clear_line
+    cursor_up 1
+  done
+  clear_line
+  show_cursor
+  echo -e "  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}  ${CY}${items[$cur]}${R}"
+  echo ""
+  _result="${items[$cur]}"
 }
 
 # ── TUI: checkbox multi-select ────────────────────────────────────────────────
 
 tui_checkbox() {
-local -n _checked=”$1”; shift
-local prompt=”$1”;      shift
-local items=(”$@”)
-local cur=0 total=${#items[@]} key esc
-local selected=()
-for _ in “${items[@]}”; do selected+=(0); done
+  local -n _checked="$1"; shift
+  local prompt="$1"; shift
+  local items=("$@")
+  local cur=0 total=${#items[@]} key esc
+  local selected=()
+  for _ in "${items[@]}"; do selected+=(0); done
 
-hide_cursor
-echo -e “  ${BOLD}${prompt}${R}”
-echo -e “  ${DIM}(↑↓ navigate · space = toggle · enter = continue)${R}”
-echo “”
+  hide_cursor
+  echo -e "  ${BOLD}${prompt}${R}"
+  echo -e "  ${DIM}(↑↓ navigate · space = toggle · enter = continue)${R}"
+  echo ""
 
-_render_cb() {
-for i in “${!items[@]}”; do
-local box=”[ ]” col=”$DIM”
-[ “${selected[$i]}” -eq 1 ] && box=”[${GR}x${R}]” && col=””
-clear_line
-if [ “$i” -eq “$cur” ]; then
-echo -e “  ${CY}${BOLD}▶${R}  ${box} ${col}${items[$i]}${R}”
-else
-echo -e “     ${box} ${col}${DIM}${items[$i]}${R}”
-fi
-done
-}
+  _render_cb() {
+    for i in "${!items[@]}"; do
+      local box="[ ]" col="$DIM"
+      [ "${selected[$i]}" -eq 1 ] && box="[${GR}x${R}]" && col=""
+      if [ "$i" -eq "$cur" ]; then
+        echo -e "  ${CY}${BOLD}▶${R}  ${box} ${col}${items[$i]}${R}"
+      else
+        echo -e "     ${box} ${col}${DIM}${items[$i]}${R}"
+      fi
+    done
+  }
 
-_render_cb
+  local render_lines=$(( total + 2 ))
+  _render_cb
 
-while true; do
-IFS= read -r -s -n1 key
-if [ “$key” = $’\x1b’ ]; then
-IFS= read -r -s -n1 esc
-IFS= read -r -s -n1 esc
-case “$esc” in
-A) [ “$cur” -gt 0 ] && (( cur– )) || true ;;
-B) [ “$cur” -lt $(( total - 1 )) ] && (( cur++ )) || true ;;
-esac
-elif [ “$key” = “ “ ]; then
-selected[$cur]=$(( 1 - selected[$cur] )) || true
-elif [ “$key” = “” ] || [ “$key” = $’\r’ ]; then
-break
-fi
-cursor_up “$total”
-_render_cb
-done
+  while true; do
+    IFS= read -r -s -n1 key
+    if [ "$key" = $'\x1b' ]; then
+      IFS= read -r -s -n1 esc
+      IFS= read -r -s -n1 esc
+      case "$esc" in
+        A) [ "$cur" -gt 0 ] && (( cur-- )) || true ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) || true ;;
+      esac
+    elif [ "$key" = " " ] && [ "$cur" -lt "$total" ]; then
+      selected[$cur]=$(( 1 - selected[$cur] ))
+    elif [ -z "$key" ] || [ "$key" = $'\r' ]; then
+      break
+    fi
 
-cursor_up $(( total + 3 ))
-printf ‘\033[J’
-show_cursor
+    for _ in $(seq 1 "$render_lines"); do
+      clear_line
+      cursor_up 1
+    done
+    clear_line
+    echo -e "  ${BOLD}${prompt}${R}"
+    echo -e "  ${DIM}(↑↓ navigate · space = toggle · enter = continue)${R}"
+    echo ""
+    _render_cb
+  done
 
-_checked=()
-for i in “${!items[@]}”; do
-[ “${selected[$i]}” -eq 1 ] && _checked+=(”${items[$i]}”)
-done
+  for _ in $(seq 1 "$render_lines"); do
+    clear_line
+    cursor_up 1
+  done
+  clear_line
+  show_cursor
 
-if [ ${#_checked[@]} -gt 0 ]; then
-echo -e “  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}”
-for item in “${_checked[@]}”; do echo -e “    ${CY}▸${R} ${item}”; done
-else
-echo -e “  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}  ${DIM}(none — English only)${R}”
-fi
-echo “”
+  _checked=()
+  for i in "${!items[@]}"; do
+    [ "${selected[$i]}" -eq 1 ] && _checked+=("${items[$i]}")
+  done
+
+  if [ ${#_checked[@]} -gt 0 ]; then
+    echo -e "  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}"
+    for item in "${_checked[@]}"; do echo -e "    ${CY}▸${R} ${item}"; done
+  else
+    echo -e "  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}  ${DIM}(none — English only)${R}"
+  fi
+  echo ""
 }
 
 # ── TUI: text input ───────────────────────────────────────────────────────────
