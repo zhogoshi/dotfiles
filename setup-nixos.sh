@@ -1297,7 +1297,9 @@ if [ "$AUTO_INSTALL" -eq 0 ]; then
   echo ""
   echo -e "  Format ${CY}${PRIMARY_DEV}${R} yourself, then:"
   echo -e "    ${BOLD}sudo nixos-generate-config --root /mnt${R}"
-  echo -e "    ${BOLD}sudo nixos-install --flake /etc/nixos#nixos${R}"
+  echo -e "  ${DIM}With root on /mnt, copy your repo to /mnt/etc/nixos (or clone there), then:${R}"
+  echo -e "    ${BOLD}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
+  echo -e "  ${DIM}(Using /home/... via /etc/nixos can trigger Nix flake narHash / store-path assertions.)${R}"
   read -r -s -p "  Press Enter to continue..." _
   echo ""
 else
@@ -1393,18 +1395,30 @@ phase_header "9" "NixOS Installation"
 if [ "$AUTO_INSTALL" -eq 0 ]; then
   echo -e "  ${DIM}Manual mode — skipping nixos-install.${R}"
   echo ""
-  echo -e "  Run when ready:"
-  echo -e "    ${CY}${BOLD}sudo nixos-install --flake /etc/nixos#nixos${R}"
+  echo -e "  ${DIM}After /mnt is your root, put this flake at /mnt/etc/nixos (e.g. ${BOLD}sudo cp -a \"${DEST}/.\" /mnt/etc/nixos/${R}${DIM}), then:${R}"
+  echo -e "    ${CY}${BOLD}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
+  echo -e "  ${DIM}Avoid /etc/nixos → /home/... when installing: Nix can abort on flake self narHash vs store path.${R}"
   read -r -s -p "  Press Enter to continue..." _
   echo ""
 else
+  log "Installing flake onto /mnt/etc/nixos (avoids /home + /etc/nixos symlink flake store assertions)..."
+  sudo rm -rf /mnt/etc/nixos
+  sudo mkdir -p /mnt/etc/nixos
+  sudo cp -a "${DEST}/." /mnt/etc/nixos/
+  sudo chmod -R a+rwX /mnt/etc/nixos 2>/dev/null || true
+  log "Pointing live /etc/nixos → /mnt/etc/nixos so flake path matches target root..."
+  if _capt "ln /etc/nixos → /mnt/etc/nixos" sudo ln -sfn /mnt/etc/nixos /etc/nixos; then
+    ok "/etc/nixos → /mnt/etc/nixos"
+  else
+    warn "Could not relink /etc/nixos; install still uses /mnt/etc/nixos#nixos"
+  fi
   log "Running nixos-install..."
   echo ""
   _init_run_tmp
   _nil="$(mktemp "$RUN_TMP/nixinst.XXXXXX")"
   set +e
   set +o pipefail
-  sudo nixos-install --no-root-passwd --flake /etc/nixos#nixos 2>&1 | tee "$_nil"
+  sudo nixos-install --no-root-passwd --flake /mnt/etc/nixos#nixos 2>&1 | tee "$_nil"
   _nix_ec=${PIPESTATUS[0]}
   set -o pipefail
   set -e
@@ -1564,7 +1578,7 @@ if [ "$AUTO_INSTALL" -eq 1 ]; then
   echo -e "    ${DIM}4.${R} Edit ${CY}${DEST}/flake.nix${R} → set ${CY}setupMode = false${R}"
   echo -e "    ${DIM}5.${R} In kitty (${CY}Super+Enter${R}):   ${CY}rr${R}"
 else
-  echo -e "    ${DIM}1.${R} Install:  ${CY}sudo nixos-install --flake /etc/nixos#nixos${R}"
+  echo -e "    ${DIM}1.${R} Copy flake to /mnt/etc/nixos, then: ${CY}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
   echo -e "    ${DIM}2.${R} Reboot:   ${CY}reboot${R}"
   echo -e "    ${DIM}3.${R} Login as: ${CY}${USERNAME}${R}  (password: ${CY}${INIT_PASS}${R})"
   echo -e "    ${DIM}4.${R} Set up VPN, edit flake → ${CY}setupMode = false${R}, run ${CY}rr${R}"
