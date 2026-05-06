@@ -75,6 +75,7 @@ emit_asset_links() {
   [ -d "$assets_dir" ] || return 0
 
   cat << 'ASSET_PHASE_HDR'
+if [ "$SKIP_POST_NIX_STEPS" -eq 0 ]; then
 phase_header "10" "Dotfiles & Assets"
 log "Linking asset files..."
 mkdir -p "$DEST/assets"
@@ -105,6 +106,7 @@ ASSET_PHASE_HDR
     printf 'ln -sf "$DEST/%s" "$_apath"\n' "$rel_src"
     printf 'log "  linked: %s"\n\n' "$rel_src"
   done
+  printf 'fi\n'
 }
 
 # ── Generated setup-nixos.sh ─────────────────────────────────────────────────
@@ -121,6 +123,7 @@ USERNAME=""
 INIT_PASS=""
 KB_LAYOUT="us"
 BROWSER_CHOICE=""
+SKIP_POST_NIX_STEPS=0
 WARNINGS=()
 CRITICALS=()
 RUN_TMP=""
@@ -576,10 +579,8 @@ else
 fi
 ok "Config patched."
 
-log "Setting ownership..."
-chown -R "$USERNAME:users" "$DEST" 2>/dev/null \
-  || warn "chown failed — user ${USERNAME} may not exist yet on the live ISO"
-chmod -R u+rw,go-w "$DEST"
+log "Making ${DEST} readable/writable for all (no chown)..."
+chmod -R a+rwX "$DEST" 2>/dev/null || warn "chmod a+rwX on ${DEST} incomplete (try as root if needed)"
 
 log "Linking /etc/nixos → ${DEST}..."
 if _capt "sudo ln /etc/nixos → ${DEST}" bash -c "sudo rm -rf /etc/nixos && sudo ln -sf \"$DEST\" /etc/nixos"; then
@@ -714,10 +715,18 @@ else
   if [ "$_nix_ec" -eq 0 ]; then
     rm -f "$_nil"
     ok "NixOS installed successfully."
+    log "nixos-rebuild switch (inside installed system)..."
+    if _capt "nixos-enter: nixos-rebuild switch" sudo nixos-enter -- nixos-rebuild switch --flake /etc/nixos#nixos; then
+      ok "nixos-rebuild switch completed."
+    else
+      err "nixos-rebuild failed — skipping assets, ambxst, and other post-install steps."
+      SKIP_POST_NIX_STEPS=1
+    fi
   else
     err "nixos-install failed — captured output can be reviewed below."
     FAIL_DETAIL_LABELS+=("nixos-install")
     FAIL_DETAIL_FILES+=("$_nil")
+    SKIP_POST_NIX_STEPS=1
   fi
 fi
 
@@ -727,6 +736,7 @@ PHASE6_REST
 
 cat << 'FINAL'
 
+if [ "$SKIP_POST_NIX_STEPS" -eq 0 ]; then
 log "Installing ambxst..."
 if _capt "curl get.axeni.de/ambxst | sh" bash -c "curl -fsSL get.axeni.de/ambxst | sh"; then
   ok "ambxst installed."
@@ -743,9 +753,13 @@ fi
 
 log "Setting up ~/.config/ambxst..."
 mkdir -p "/home/$USERNAME/.config/ambxst"
-chown "$USERNAME:users" "/home/$USERNAME/.config/ambxst" 2>/dev/null || true
-chmod a+rwx "/home/$USERNAME/.config/ambxst"
+chmod a+rwx "/home/$USERNAME/.config/ambxst" 2>/dev/null || true
 ok "~/.config/ambxst ready."
+fi
+
+if [ "$SKIP_POST_NIX_STEPS" -ne 0 ] && [ "$AUTO_INSTALL" -eq 1 ]; then
+  warn "Post-install (assets / ambxst) was skipped after nixos-install or nixos-rebuild failure."
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Phase 11: Done
