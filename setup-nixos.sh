@@ -28,7 +28,6 @@ hide_cursor()  { printf ‘\033[?25l’; }
 show_cursor()  { printf ‘\033[?25h’; }
 cursor_up()    { printf ‘\033[%dA’ “$1”; }
 clear_line()   { printf ‘\033[2K\r’; }
-clear_to_end() { printf ‘\033[J’; }
 
 trap ‘show_cursor’ EXIT
 
@@ -61,12 +60,7 @@ hide_cursor
 echo -e “  ${BOLD}${prompt}${R}”
 echo “”
 
-# Render items. Each line is cleared first, so this works both for the
-
-# initial draw (on blank lines) and for redraws (overwriting previous items).
-
 _render_list() {
-local i
 for i in “${!items[@]}”; do
 clear_line
 if [ “$i” -eq “$cur” ]; then
@@ -78,8 +72,6 @@ done
 }
 
 _render_list
-
-# cursor is now one line below the last item
 
 while true; do
 IFS= read -r -s -n1 key
@@ -93,16 +85,12 @@ esac
 elif [ “$key” = “” ] || [ “$key” = $’\r’ ]; then
 break
 fi
-# Move back up to the first item, then redraw the list.
-# Header (prompt + blank line) stays put.
 cursor_up “$total”
 _render_list
 done
 
-# Clear the entire UI (prompt + blank + items) and replace with the result.
-
 cursor_up $(( total + 2 ))
-clear_to_end
+printf ‘\033[J’
 show_cursor
 echo -e “  ${GR}${BOLD}✓${R} ${BOLD}${prompt}${R}  ${CY}${items[$cur]}${R}”
 echo “”
@@ -125,7 +113,6 @@ echo -e “  ${DIM}(↑↓ navigate · space = toggle · enter = continue)${R}�
 echo “”
 
 _render_cb() {
-local i
 for i in “${!items[@]}”; do
 local box=”[ ]” col=”$DIM”
 [ “${selected[$i]}” -eq 1 ] && box=”[${GR}x${R}]” && col=””
@@ -139,8 +126,6 @@ done
 }
 
 _render_cb
-
-# cursor is now one line below the last item
 
 while true; do
 IFS= read -r -s -n1 key
@@ -160,10 +145,8 @@ cursor_up “$total”
 _render_cb
 done
 
-# Clear the entire UI (prompt + hint + blank + items).
-
 cursor_up $(( total + 3 ))
-clear_to_end
+printf ‘\033[J’
 show_cursor
 
 _checked=()
