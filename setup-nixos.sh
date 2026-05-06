@@ -75,10 +75,10 @@ tui_select() {
       IFS= read -r -s -n1 esc
       IFS= read -r -s -n1 esc
       case "$esc" in
-        A) [ "$cur" -gt 0 ] && (( cur-- )) ;;
-        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) ;;
+        A) [ "$cur" -gt 0 ] && (( cur-- )) || true ;;
+        B) [ "$cur" -lt $(( total - 1 )) ] && (( cur++ )) || true ;;
       esac
-    elif [ "$key" = "" ]; then
+    elif [ "$key" = ""] || [ "$key" = $'\r' ]; then
       break
     fi
     for _ in $(seq 1 "$total"); do clear_line; cursor_up 1; done
@@ -137,12 +137,12 @@ tui_checkbox() {
       IFS= read -r -s -n1 esc
       IFS= read -r -s -n1 esc
       case "$esc" in
-        A) [ "$cur" -gt 0 ] && (( cur-- )) ;;
-        B) [ "$cur" -lt "$total" ] && (( cur++ )) ;;
+        A) [ "$cur" -gt 0 ] && (( cur-- )) || true ;;
+        B) [ "$cur" -lt "$total" ] && (( cur++ )) || true ;;
       esac
     elif [ "$key" = " " ] && [ "$cur" -lt "$total" ]; then
-      selected[$cur]=$(( 1 - selected[$cur] ))
-    elif [ "$key" = "" ] && [ "$cur" -eq "$total" ]; then
+      selected[$cur]=$(( 1 - selected[$cur] )) || true
+    elif { [ "$key" = "" ] || [ "$key" = $'\r' ]; } && [ "$cur" -eq "$total" ]; then
       break
     fi
     for _ in $(seq 1 "$render_lines"); do clear_line; cursor_up 1; done
