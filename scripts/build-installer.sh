@@ -352,7 +352,7 @@ tui_input USERNAME "Username" "hogoshi"
 _default_dest="/home/$USERNAME/nix-config"
 tui_input DEST "Config path" "$_default_dest"
 
-tui_password INIT_PASS "Initial password" "0378"
+tui_password INIT_PASS "Initial password" "changeme"
 
 echo -e "  ${GR}${BOLD}✓${R} Identity:"
 echo -e "    ${DIM}▸${R} User:     ${CY}${USERNAME}${R}"
