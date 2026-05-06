@@ -1,0 +1,28 @@
+@import "matugen-vars.css";
+
+:root {
+  --toolbar-bgcolor: var(--matugen-background, #1e1e2e) !important;
+  --toolbar-color: var(--matugen-on-surface, #cdd6f4) !important;
+  --toolbarbutton-hover-background: var(--matugen-surface, #313244) !important;
+  --toolbarbutton-active-background: var(--matugen-primary, #89b4fa) !important;
+  --tab-selected-bgcolor: var(--matugen-surface, #313244) !important;
+  --urlbar-background: var(--matugen-surface, #313244) !important;
+}
+
+#navigator-toolbox {
+  background-color: var(--matugen-background, #1e1e2e) !important;
+  border-bottom: 1px solid var(--matugen-outline, #6c7086) !important;
+}
+
+.tab-background:is([selected], [multiselected]) {
+  background-color: var(--matugen-surface, #313244) !important;
+}
+
+#urlbar-background {
+  background-color: var(--matugen-surface, #313244) !important;
+  border-color: var(--matugen-outline, #6c7086) !important;
+}
+
+#urlbar:focus-within #urlbar-background {
+  border-color: var(--matugen-primary, #89b4fa) !important;
+}
