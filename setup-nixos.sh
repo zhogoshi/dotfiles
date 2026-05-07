@@ -1303,7 +1303,7 @@ if [ "$AUTO_INSTALL" -eq 0 ]; then
   echo -e "    ${BOLD}sudo nixos-generate-config --root /mnt${R}"
   echo -e "  ${DIM}With root on /mnt, copy your repo to /mnt/etc/nixos, then lock and install:${R}"
   echo -e "    ${BOLD}sudo cp -a /path/to/your-flake/. /mnt/etc/nixos/${R}"
-  echo -e "    ${BOLD}sudo nix flake lock --recreate-lock-file /mnt/etc/nixos${R}"
+  echo -e "    ${BOLD}sudo nix --extra-experimental-features 'nix-command flakes' flake lock /mnt/etc/nixos${R}"
   echo -e "    ${BOLD}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
   echo -e "  ${DIM}(Using /home/... via /etc/nixos can trigger Nix flake narHash / store-path assertions.)${R}"
   read -r -s -p "  Press Enter to continue..." _
@@ -1402,7 +1402,7 @@ if [ "$AUTO_INSTALL" -eq 0 ]; then
   echo -e "  ${DIM}Manual mode — skipping nixos-install.${R}"
   echo ""
   echo -e "  ${DIM}Copy your flake to /mnt/etc/nixos, then lock and install (avoids Nix flake.cc narHash assert):${R}"
-  echo -e "    ${BOLD}sudo nix flake lock --recreate-lock-file /mnt/etc/nixos${R}"
+  echo -e "    ${BOLD}sudo nix --extra-experimental-features 'nix-command flakes' flake lock /mnt/etc/nixos${R}"
   echo -e "    ${CY}${BOLD}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
   echo -e "  ${DIM}Avoid /etc/nixos → /home/... when installing: Nix can abort on flake self narHash vs store path.${R}"
   read -r -s -p "  Press Enter to continue..." _
@@ -1420,11 +1420,11 @@ else
   else
     warn "Could not relink /etc/nixos; install still uses /mnt/etc/nixos#nixos"
   fi
-  log "Locking flake on target (recreate-lock-file fixes self narHash vs store assert)..."
-  if _capt "nix flake lock /mnt/etc/nixos" sudo nix flake lock --recreate-lock-file /mnt/etc/nixos; then
+  log "Locking flake on target (fresh flake.lock; needs nix-command + flakes for root nix)..."
+  if _capt "nix flake lock /mnt/etc/nixos" sudo nix --extra-experimental-features 'nix-command flakes' flake lock /mnt/etc/nixos; then
     ok "flake.lock written under /mnt/etc/nixos"
   else
-    warn "nix flake lock failed (network?); nixos-install may still hit Nix flake.cc assertion"
+    warn "nix flake lock failed (root nix needs flakes features, or network); nixos-install may still hit Nix flake.cc assertion"
   fi
   log "Running nixos-install..."
   echo ""
@@ -1592,7 +1592,7 @@ if [ "$AUTO_INSTALL" -eq 1 ]; then
   echo -e "    ${DIM}4.${R} Edit ${CY}${DEST}/flake.nix${R} → set ${CY}setupMode = false${R}"
   echo -e "    ${DIM}5.${R} In kitty (${CY}Super+Enter${R}):   ${CY}rr${R}"
 else
-  echo -e "    ${DIM}1.${R} ${CY}sudo cp -a \"${DEST}/.\" /mnt/etc/nixos/${R}  ${DIM}·${R}  ${CY}sudo nix flake lock --recreate-lock-file /mnt/etc/nixos${R}"
+  echo -e "    ${DIM}1.${R} ${CY}sudo cp -a \"${DEST}/.\" /mnt/etc/nixos/${R}  ${DIM}·${R}  ${CY}sudo nix --extra-experimental-features 'nix-command flakes' flake lock /mnt/etc/nixos${R}"
   echo -e "    ${DIM}2.${R} ${CY}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
   echo -e "    ${DIM}3.${R} Reboot:   ${CY}reboot${R}"
   echo -e "    ${DIM}4.${R} Login as: ${CY}${USERNAME}${R}  (password: ${CY}${INIT_PASS}${R})"
