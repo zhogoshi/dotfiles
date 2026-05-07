@@ -122,6 +122,12 @@ cat << 'SETUP_HEADER'
 # Run on a fresh NixOS live ISO to bootstrap the system.
 set -euo pipefail
 
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  echo "This installer must run as root."
+  echo "Use: curl -fL https://raw.githubusercontent.com/zhogoshi/dotfiles/main/install.sh | sudo bash"
+  exit 1
+fi
+
 DEST=""
 USERNAME=""
 INIT_PASS=""
