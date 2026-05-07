@@ -124,7 +124,7 @@ set -euo pipefail
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
   echo "This installer must run as root."
-  echo "Use: curl -fL https://raw.githubusercontent.com/zhogoshi/dotfiles/main/install.sh | sudo bash"
+  echo 'Use: sudo bash -c "$(curl -fL https://raw.githubusercontent.com/zhogoshi/dotfiles/main/install.sh)"'
   exit 1
 fi
 
