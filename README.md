@@ -18,5 +18,5 @@ After the system reboots:
 3. Run the post-install script to finalize the configuration (disables setupMode, enables monitor settings, etc.):
 
 ```bash
-bash ~/nix-config/post-install.sh
+bash ~/nixos/post-install.sh
 ```

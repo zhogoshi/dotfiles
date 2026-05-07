@@ -306,7 +306,7 @@ echo ""
 tui_input USERNAME "Username" "hogoshi"
 tui_password INIT_PASS "Initial password" "changeme"
 
-DEST="/home/$USERNAME/nix-config"
+DEST="/home/$USERNAME/nixos"
 
 echo -e "  ${GR}${BOLD}✓${R} Identity:"
 echo -e "    ${DIM}▸${R} User:     ${CY}${USERNAME}${R}"
@@ -513,7 +513,7 @@ ok "Config patched."
 phase_header "8" "Dotfiles & Assets"
 
 log "Patching kb_layout in hyprland.conf..."
-sudo sed -i "s|kb_layout = .*|kb_layout = ${KB_LAYOUT}|" "/mnt${DEST}/assets/hyprland.conf"
+sudo sed -i "s|kb_layout = us|kb_layout = ${KB_LAYOUT}|g" "/mnt${DEST}/assets/hyprland.conf"
 log "  kb_layout → ${KB_LAYOUT}"
 
 log "Creating symlinks..."
@@ -531,11 +531,18 @@ log "  linked: fastfetch.json"
 # ── Phase 9: NixOS Installation ──
 phase_header "9" "NixOS Installation"
 
-log "Linking /etc/nixos → /mnt${DEST} so flake path matches target root..."
-if _capt "ln /etc/nixos → /mnt${DEST}" sudo rm -rf /etc/nixos && sudo ln -sfn "/mnt${DEST}" /etc/nixos; then
-  ok "/etc/nixos → /mnt${DEST}"
+log "Linking live /etc/nixos → /mnt${DEST} so flake path matches target root..."
+if _capt "ln live /etc/nixos → /mnt${DEST}" sudo rm -rf /etc/nixos && sudo ln -sfn "/mnt${DEST}" /etc/nixos; then
+  ok "Live /etc/nixos → /mnt${DEST}"
 else
-  warn "Could not relink /etc/nixos"
+  warn "Could not relink live /etc/nixos"
+fi
+
+log "Linking target /etc/nixos → /home/${USERNAME}/nixos..."
+if _capt "ln target /etc/nixos → /home/${USERNAME}/nixos" sudo rm -rf /mnt/etc/nixos && sudo ln -sfn "/home/${USERNAME}/nixos" /mnt/etc/nixos; then
+  ok "Target /etc/nixos → /home/${USERNAME}/nixos"
+else
+  warn "Could not relink target /etc/nixos"
 fi
 
 log "Locking flake..."
