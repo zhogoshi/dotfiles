@@ -3,7 +3,20 @@
 Run this from a NixOS live ISO:
 
 ```bash
-sudo bash -c "$(curl -fL https://raw.githubusercontent.com/zhogoshi/dotfiles/main/install.sh)"
+git clone https://github.com/zhogoshi/dotfiles.git
+cd dotfiles
+sudo bash install.sh
 ```
 
-The installer runs as root because it writes to `/home`, `/mnt`, and `/etc/nixos`, formats disks, runs `nixos-install`, and reboots. Do not pipe it into `bash`: the installer is interactive, and piping makes prompts read from the script stream instead of the keyboard. If the live ISO already logs you in as `root`, `bash -c "$(curl -fL https://raw.githubusercontent.com/zhogoshi/dotfiles/main/install.sh)"` also works.
+The installer runs as root because it writes to `/home`, `/mnt`, and `/etc/nixos`, formats disks, runs `nixos-install`, and reboots. 
+
+### Post-installation
+
+After the system reboots:
+1. Log in with your new user and password.
+2. Connect to your VPN using `Super + K` (throne).
+3. Run the post-install script to finalize the configuration (disables setupMode, enables monitor settings, etc.):
+
+```bash
+bash ~/nix-config/post-install.sh
+```
