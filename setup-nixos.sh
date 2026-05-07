@@ -1273,6 +1273,10 @@ if [ "$BROWSER_CHOICE" = "Zen Browser" ]; then
 else
   log "Browser: Firefox (useZen = false)"
 fi
+if [ -f "$DEST/flake.lock" ]; then
+  log "Removing flake.lock — sed/username edits change sources; locked self narHash would abort nixos-install."
+  rm -f "$DEST/flake.lock"
+fi
 ok "Config patched."
 
 log "Making ${DEST} readable/writable for all (no chown)..."
@@ -1405,6 +1409,7 @@ else
   sudo rm -rf /mnt/etc/nixos
   sudo mkdir -p /mnt/etc/nixos
   sudo cp -a "${DEST}/." /mnt/etc/nixos/
+  rm -f /mnt/etc/nixos/flake.lock
   sudo chmod -R a+rwX /mnt/etc/nixos 2>/dev/null || true
   log "Pointing live /etc/nixos → /mnt/etc/nixos so flake path matches target root..."
   if _capt "ln /etc/nixos → /mnt/etc/nixos" sudo ln -sfn /mnt/etc/nixos /etc/nixos; then
