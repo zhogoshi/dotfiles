@@ -127,6 +127,8 @@ USERNAME=""
 INIT_PASS=""
 KB_LAYOUT="us"
 BROWSER_CHOICE=""
+PRIMARY_DISK=""
+PRIMARY_DEV=""
 INSTALL_OK=0
 WARNINGS=()
 CRITICALS=()
@@ -604,10 +606,19 @@ ok "Configuration written."
 # ═════════════════════════════════════════════════════════════════════════════
 phase_header "8" "Disk Formatting"
 
+if [ -z "$PRIMARY_DEV" ]; then
+  err "Installation disk was not selected."
+  AUTO_INSTALL=0
+fi
+
 if [ "$AUTO_INSTALL" -eq 0 ]; then
   echo -e "  ${DIM}Manual mode — skipping disk formatting.${R}"
   echo ""
-  echo -e "  Format ${CY}${PRIMARY_DEV}${R} yourself, then:"
+  if [ -n "$PRIMARY_DEV" ]; then
+    echo -e "  Format ${CY}${PRIMARY_DEV}${R} yourself, then:"
+  else
+    echo -e "  Select and format your installation disk yourself, then:"
+  fi
   echo -e "    ${BOLD}sudo nixos-generate-config --root /mnt${R}"
   echo -e "  ${DIM}With root on /mnt, copy your repo to /mnt/etc/nixos, then lock and install:${R}"
   echo -e "    ${BOLD}sudo cp -a /path/to/your-flake/. /mnt/etc/nixos/${R}"
