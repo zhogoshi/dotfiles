@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds setup-nixos.sh from the current nix-config repo.
+# Builds install.sh from the current nix-config repo.
 # Run from the repo root: bash scripts/build-installer.sh
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUTPUT="$REPO_ROOT/setup-nixos.sh"
+OUTPUT="$REPO_ROOT/install.sh"
 
 # ── Builder UI ────────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ ASSET_PHASE_HDR
   printf 'fi\n'
 }
 
-# ── Generated setup-nixos.sh ─────────────────────────────────────────────────
+# ── Generated install.sh ──────────────────────────────────────────────────────
 
 emit_setup_script() {
 cat << 'SETUP_HEADER'
@@ -842,5 +842,5 @@ chmod +x "$OUTPUT"
 
 builder_ok "Built: $(basename "$OUTPUT")  ($(wc -l < "$OUTPUT") lines)"
 echo ""
-echo -e "  ${C_DIM}Run on a NixOS live ISO:  bash setup-nixos.sh${C_RESET}"
+echo -e "  ${C_DIM}Run on a NixOS live ISO:  bash install.sh${C_RESET}"
 echo ""
