@@ -507,9 +507,7 @@ if [ -f "/mnt${DEST}/flake.lock" ]; then
 fi
 ok "Config patched."
 
-log "Setting permissions for ${USERNAME}..."
-sudo chown -R 1000:100 "/mnt${DEST}"
-ok "Permissions set."
+# (Permissions will be set after installation)
 
 # ── Phase 8: Dotfiles & Assets ──
 phase_header "8" "Dotfiles & Assets"
@@ -528,7 +526,7 @@ sudo mkdir -p "/mnt/home/${USERNAME}/.config/fastfetch"
 sudo ln -sf "${DEST}/assets/fastfetch.json" "/mnt/home/${USERNAME}/.config/fastfetch/config.json"
 log "  linked: fastfetch.json"
 
-sudo chown -R 1000:100 "/mnt/home/${USERNAME}/.config"
+# (Config permissions will be set later)
 
 # ── Phase 9: NixOS Installation ──
 phase_header "9" "NixOS Installation"
@@ -561,6 +559,11 @@ if [ "$_nix_ec" -eq 0 ]; then
   rm -f "$_nil"
   ok "NixOS installed successfully."
   INSTALL_OK=1
+
+  log "Setting permissions for ${USERNAME}..."
+  sudo chown -R 1000:100 "/mnt${DEST}"
+  sudo chown -R 1000:100 "/mnt/home/${USERNAME}/.config"
+  ok "Permissions set."
 else
   err "nixos-install failed — captured output can be reviewed below."
   FAIL_DETAIL_LABELS+=("nixos-install")
