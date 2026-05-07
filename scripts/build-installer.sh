@@ -75,10 +75,13 @@ emit_asset_links() {
   [ -d "$assets_dir" ] || return 0
 
   cat << 'ASSET_PHASE_HDR'
-if [ "$SKIP_POST_NIX_STEPS" -eq 0 ]; then
+if [ "$AUTO_INSTALL" -eq 1 ] && [ "$INSTALL_OK" -eq 1 ]; then
 phase_header "10" "Dotfiles & Assets"
 log "Linking asset files..."
-mkdir -p "$DEST/assets"
+TARGET_ROOT="/mnt"
+TARGET_CONFIG="/mnt/etc/nixos"
+RUNTIME_CONFIG="/etc/nixos"
+mkdir -p "$TARGET_CONFIG/assets"
 ASSET_PHASE_HDR
 
   for path_file in "$assets_dir"/*.path; do
@@ -91,19 +94,20 @@ ASSET_PHASE_HDR
     local rel_src="assets/$(basename "$base")"
     local delim="ASSET_EOF_$(basename "$base" | tr -c 'A-Za-z0-9' '_')"
 
-    printf 'cat > "$DEST/%s" << '"'"'%s'"'"'\n' "$rel_src" "$delim"
+    printf 'cat > "$TARGET_CONFIG/%s" << '"'"'%s'"'"'\n' "$rel_src" "$delim"
     cat "$base"
     printf '%s\n' "$delim"
 
     if [ "$(basename "$base")" = "hyprland.conf" ]; then
-      printf 'sed -i "s|kb_layout = .*|kb_layout = ${KB_LAYOUT}|" "$DEST/%s"\n' "$rel_src"
+      printf 'sed -i "s|kb_layout = .*|kb_layout = ${KB_LAYOUT}|" "$TARGET_CONFIG/%s"\n' "$rel_src"
       printf 'log "  kb_layout → ${KB_LAYOUT}"\n'
     fi
 
     printf '_apath="%s"\n' "$orig_dest"
     printf '_apath="${_apath//hogoshi/$USERNAME}"\n'
-    printf 'mkdir -p "$(dirname "$_apath")"\n'
-    printf 'ln -sf "$DEST/%s" "$_apath"\n' "$rel_src"
+    printf '_target_apath="${TARGET_ROOT}${_apath}"\n'
+    printf 'mkdir -p "$(dirname "$_target_apath")"\n'
+    printf 'ln -sf "$RUNTIME_CONFIG/%s" "$_target_apath"\n' "$rel_src"
     printf 'log "  linked: %s"\n\n' "$rel_src"
   done
   printf 'fi\n'
@@ -123,7 +127,7 @@ USERNAME=""
 INIT_PASS=""
 KB_LAYOUT="us"
 BROWSER_CHOICE=""
-SKIP_POST_NIX_STEPS=0
+INSTALL_OK=0
 WARNINGS=()
 CRITICALS=()
 RUN_TMP=""
@@ -743,18 +747,11 @@ else
   if [ "$_nix_ec" -eq 0 ]; then
     rm -f "$_nil"
     ok "NixOS installed successfully."
-    log "nixos-rebuild switch (inside installed system)..."
-    if _capt "nixos-enter: nixos-rebuild switch" sudo nixos-enter -- nixos-rebuild switch --flake /etc/nixos#nixos; then
-      ok "nixos-rebuild switch completed."
-    else
-      err "nixos-rebuild failed — skipping assets, ambxst, and other post-install steps."
-      SKIP_POST_NIX_STEPS=1
-    fi
+    INSTALL_OK=1
   else
     err "nixos-install failed — captured output can be reviewed below."
     FAIL_DETAIL_LABELS+=("nixos-install")
     FAIL_DETAIL_FILES+=("$_nil")
-    SKIP_POST_NIX_STEPS=1
   fi
 fi
 
@@ -763,31 +760,6 @@ PHASE6_REST
   emit_asset_links
 
 cat << 'FINAL'
-
-if [ "$SKIP_POST_NIX_STEPS" -eq 0 ]; then
-log "Installing ambxst..."
-if _capt "curl get.axeni.de/ambxst | sh" bash -c "curl -fsSL get.axeni.de/ambxst | sh"; then
-  ok "ambxst installed."
-else
-  warn "ambxst install failed — run manually: curl -fsSL get.axeni.de/ambxst | sh"
-fi
-
-log "Running ambxst install hyprland..."
-if _capt "ambxst install hyprland" ambxst install hyprland; then
-  ok "ambxst hyprland setup complete."
-else
-  warn "ambxst install hyprland failed — run manually after reboot."
-fi
-
-log "Setting up ~/.config/ambxst..."
-mkdir -p "/home/$USERNAME/.config/ambxst"
-chmod a+rwx "/home/$USERNAME/.config/ambxst" 2>/dev/null || true
-ok "~/.config/ambxst ready."
-fi
-
-if [ "$SKIP_POST_NIX_STEPS" -ne 0 ] && [ "$AUTO_INSTALL" -eq 1 ]; then
-  warn "Post-install (assets / ambxst) was skipped after nixos-install or nixos-rebuild failure."
-fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Phase 11: Done
@@ -816,23 +788,28 @@ fi
 echo ""
 echo -e "  ${BOLD}Summary:${R}"
 echo -e "    ${DIM}▸${R} User:     ${CY}${USERNAME}${R}"
-echo -e "    ${DIM}▸${R} Config:   ${CY}${DEST}${R}"
+if [ "$AUTO_INSTALL" -eq 1 ]; then
+  echo -e "    ${DIM}▸${R} Config:   ${CY}/etc/nixos${R}"
+else
+  echo -e "    ${DIM}▸${R} Config:   ${CY}${DEST}${R}"
+fi
 echo -e "    ${DIM}▸${R} Keyboard: ${CY}${KB_LAYOUT}${R}"
 echo -e "    ${DIM}▸${R} Browser:  ${CY}${BROWSER_CHOICE}${R}"
 echo ""
-echo -e "  ${BOLD}Next steps:${R}"
-if [ "$AUTO_INSTALL" -eq 1 ]; then
-  echo -e "    ${DIM}1.${R} Reboot:                   ${CY}reboot${R}"
-  echo -e "    ${DIM}2.${R} Login as:                  ${CY}${USERNAME}${R}  (password: ${CY}${INIT_PASS}${R})"
-  echo -e "    ${DIM}3.${R} Open Throne (${CY}Super+K${R}), set up VLESS VPN"
-  echo -e "    ${DIM}4.${R} Edit ${CY}${DEST}/flake.nix${R} → set ${CY}setupMode = false${R}"
-  echo -e "    ${DIM}5.${R} In kitty (${CY}Super+Enter${R}):   ${CY}rr${R}"
-else
+if [ "$AUTO_INSTALL" -eq 0 ]; then
+  echo -e "  ${BOLD}Manual next steps:${R}"
   echo -e "    ${DIM}1.${R} ${CY}sudo cp -a \"${DEST}/.\" /mnt/etc/nixos/${R}  ${DIM}·${R}  ${CY}sudo nix --extra-experimental-features 'nix-command flakes' flake lock /mnt/etc/nixos${R}"
   echo -e "    ${DIM}2.${R} ${CY}sudo nixos-install --flake /mnt/etc/nixos#nixos${R}"
   echo -e "    ${DIM}3.${R} Reboot:   ${CY}reboot${R}"
   echo -e "    ${DIM}4.${R} Login as: ${CY}${USERNAME}${R}  (password: ${CY}${INIT_PASS}${R})"
   echo -e "    ${DIM}5.${R} Set up VPN, edit flake → ${CY}setupMode = false${R}, run ${CY}rr${R}"
+elif [ "$INSTALL_OK" -eq 1 ] && [ "$nw" -eq 0 ] && [ "$nc" -eq 0 ]; then
+  echo -e "  ${GR}${BOLD}Auto install completed successfully.${R}"
+  echo -e "  ${DIM}Rebooting in 5 seconds.${R}"
+  sleep 5
+  sudo reboot
+else
+  echo -e "  ${YE}${BOLD}Auto install did not finish cleanly. Reboot is not started.${R}"
 fi
 echo ""
 if [ "$nw" -gt 0 ] || [ "$nc" -gt 0 ] || [ "$nd" -gt 0 ]; then
