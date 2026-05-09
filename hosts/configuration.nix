@@ -7,6 +7,7 @@
   ] ++ lib.optionals (!setupMode) [
     ../modules/system/normal.nix
     ../modules/desktop/normal.nix
+    ../modules/programs/steam.nix
   ] ++ lib.optionals useZen [
     ../modules/programs/zen.nix
   ];

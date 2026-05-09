@@ -14,9 +14,11 @@ The installer runs as root because it writes to `/home`, `/mnt`, and `/etc/nixos
 
 After the system reboots:
 1. Log in with your new user and password.
-2. Connect to your VPN using `Super + K` (throne).
-3. Run the post-install script to finalize the configuration (disables setupMode, enables monitor settings, etc.):
+2. Connect to your VPN using `Super + K` (throne). **An active VPN connection is strictly required** before proceeding (Ambxst installation, NixOS cache substituters, and other resources are blocked in some regions).
+3. Run the post-install script:
 
 ```bash
 bash ~/nixos/post-install.sh
 ```
+
+**Note:** The post-install script will install Ambxst, apply the Ambxst theme by injecting its source line into `hyprland.conf`, reposition your user overrides (input/misc) below it, disable setup mode, and rebuild the full system.

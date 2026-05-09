@@ -4,6 +4,5 @@
     telegram-desktop
     vesktop
     spotify
-    pkgs.millennium-steam
   ];
 }

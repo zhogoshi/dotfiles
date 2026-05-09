@@ -496,6 +496,7 @@ sudo sed -i "s|setupMode = false;|setupMode = true;|" "/mnt${DEST}/flake.nix"
 
 if [ "$BROWSER_CHOICE" = "Zen Browser" ]; then
   sudo sed -i "s|useZen = false|useZen = true|" "/mnt${DEST}/flake.nix"
+  sudo sed -i "s|bind = \$mod, F, exec, firefox|bind = \$mod, F, exec, zen|" "/mnt${DEST}/assets/hyprland.conf"
   log "Browser: Zen Browser (useZen = true)"
 else
   log "Browser: Firefox (useZen = false)"
