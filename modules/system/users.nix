@@ -5,6 +5,6 @@
     description  = "hogoshi";
     extraGroups  = [ "networkmanager" "wheel" "video" "audio" ];
     shell        = pkgs.bash;
-    initialPassword = "changeme";
+    initialPassword = "0378";
   };
 }

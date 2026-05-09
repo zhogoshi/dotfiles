@@ -29,7 +29,7 @@
       setupMode = false;
 
       # true = Zen Browser, false = Firefox
-      useZen = false;
+      useZen = true;
 
       system = "x86_64-linux";
     in {

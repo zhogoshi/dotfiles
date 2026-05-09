@@ -9,7 +9,7 @@ in
   programs.spicetify = {
     enable = true;
     theme  = spicePkgs.themes.comfy;
-    colorScheme = "dark";
+    colorScheme = "Spotify";
 
     enabledExtensions = with spicePkgs.extensions; [
       adblock

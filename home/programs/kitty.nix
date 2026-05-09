@@ -4,10 +4,11 @@
     enable = true;
     settings = {
       font_family      = "monospace";
-      font_size        = 13;
+      font_size        = 14;
       window_padding_width = 8;
       confirm_os_window_close = 0;
       include = "~/.config/kitty/colors.conf";
+      background_opacity = 0.4;
     };
   };
 

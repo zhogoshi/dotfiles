@@ -25,14 +25,11 @@
     "packages",
     "shell",
     "display",
-    "de",
-    "wm",
     "terminal",
     "cpu",
     "gpu",
     "memory",
     "disk",
     "separator",
-    "colors"
   ]
 }

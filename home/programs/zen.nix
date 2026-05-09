@@ -4,8 +4,8 @@
     before = [];
     data   = ''
       COLORS_JSON="$HOME/.cache/matugen/colors.json"
-      ZEN_PROFILE=$(find "$HOME/.zen" -maxdepth 1 -name "*.default*" -type d 2>/dev/null | head -1)
-      [ -z "$ZEN_PROFILE" ] && ZEN_PROFILE=$(find "$HOME/.zen" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -1)
+      ZEN_PROFILE=$(find "$HOME/.config/zen" -maxdepth 1 -name "*.default*" -type d 2>/dev/null | head -1)
+      [ -z "$ZEN_PROFILE" ] && ZEN_PROFILE=$(find "$HOME/.config/zen" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -1)
 
       if [ -n "$ZEN_PROFILE" ]; then
         mkdir -p "$ZEN_PROFILE/chrome"

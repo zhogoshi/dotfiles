@@ -3,6 +3,5 @@
     code-cursor
     telegram-desktop
     vesktop
-    spotify
   ];
 }
