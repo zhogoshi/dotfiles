@@ -2,22 +2,22 @@
   description = "hogoshi's NixOS configuration";
 
   inputs = {
-    millennium.url = "github:SteamClientHomebrew/Millennium/defffd7b6f0cf4d5e53f5a892819966801475704?dir=packages/nix";
+    millennium.url = "path:./modules/programs/millennium-nix";
 
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "https://github.com/nixos/nixpkgs/archive/nixos-unstable.tar.gz";
 
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "https://github.com/nix-community/home-manager/archive/master.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     spicetify-nix = {
-      url = "github:Gerg-L/spicetify-nix";
+      url = "https://github.com/Gerg-L/spicetify-nix/archive/master.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     zen-browser = {
-      url = "github:youwen5/zen-browser-flake";
+      url = "https://github.com/youwen5/zen-browser-flake/archive/master.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
