@@ -12,8 +12,18 @@
     ../modules/programs/zen.nix
   ];
 
+  # Fix for millennium flake issue: "undefined variable 'pkgsi686Linux'"
+  nixpkgs.overlays = [
+    (final: prev: {
+      pkgsi686Linux = import inputs.nixpkgs {
+        system = "i686-linux";
+        config.allowUnfree = true;
+      };
+    })
+    inputs.millennium.overlays.default
+  ];
+
   nixpkgs.config.allowUnfree = true;
-  nixpkgs.overlays = [ inputs.millennium.overlays.default ];
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];

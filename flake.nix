@@ -2,7 +2,7 @@
   description = "hogoshi's NixOS configuration";
 
   inputs = {
-    millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
+    millennium.url = "github:SteamClientHomebrew/Millennium/defffd7b6f0cf4d5e53f5a892819966801475704?dir=packages/nix";
 
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
