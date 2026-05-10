@@ -524,8 +524,8 @@ sudo ln -sf "${DEST}/assets/hyprland.conf" "/mnt/home/${USERNAME}/.config/hypr/h
 log "  linked: hyprland.conf"
 
 sudo mkdir -p "/mnt/home/${USERNAME}/.config/fastfetch"
-sudo ln -sf "${DEST}/assets/fastfetch.json" "/mnt/home/${USERNAME}/.config/fastfetch/config.json"
-log "  linked: fastfetch.json"
+sudo ln -sf "${DEST}/assets/fastfetch.jsonc" "/mnt/home/${USERNAME}/.config/fastfetch/config.jsonc"
+log "  linked: fastfetch.jsonc"
 
 # (Config permissions will be set later)
 
